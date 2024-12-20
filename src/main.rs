@@ -10,14 +10,15 @@ use iced::Task;
 use keyboard::{InputKey, IN_KEYS, IN_KEYS_COUNT, OUT_KEYS_COUNT};
 use problem::Problem;
 use gui::App;
+use rand::Rng;
 
 const PATH: &str = "data/keys.data";
 
 fn process() -> Result<(), Box<dyn std::error::Error>> {
     // Temp goes down to fast (maybe) and also it would be better not to hard code the max iters
     let mut runner = Executor::new(Problem, SimulatedAnnealing::new(IN_KEYS_COUNT as f64)?);
-    runner = runner.configure(|state| state.param(IN_KEYS).max_iters(10_000_000));
-    runner = runner.add_observer(SlogLogger::term(), ObserverMode::Every(100_000));
+    runner = runner.configure(|state| state.param(IN_KEYS).max_iters(10000000));
+    runner = runner.add_observer(SlogLogger::term(), ObserverMode::Every(100000));
     let res = runner.run()?;
     let state = res.state();
 
@@ -32,7 +33,7 @@ fn process() -> Result<(), Box<dyn std::error::Error>> {
             break;
         }
 
-        file.write(&key.to_bytes())?;
+        file.write_all(&key.as_bytes())?;
     }
 
     Ok(())
@@ -47,14 +48,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut params: [InputKey; IN_KEYS_COUNT] = [InputKey::new(0, 0); IN_KEYS_COUNT];
     let mut file = File::options().read(true).open(PATH)?;
     let mut buf: [u8; 2] = [0, 0];
-    for i in 0..IN_KEYS_COUNT {
-        file.read(&mut buf)?;
-        params[i] = InputKey::from_bytes(buf);
+    for param in params.iter_mut() {
+        file.read_exact(&mut buf)?;
+        *param = InputKey::from_bytes(buf);
     }
 
-    iced::application("A cool counter", App::update, App::view)
+    let mut rng = rand::thread_rng();
+    let mut chars = vec![];
+    for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".chars() {
+        if rng.gen_range(0.0..1.0) > 0.9 {
+            chars.push(char);
+        }
+    }
+
+    let size = chars.len();
+    for i in 0..size - 1 {
+        chars.swap(i, rng.gen_range(i..size) as usize);
+    }
+    iced::application("Tester", App::update, App::view)
         .subscription(App::subscription)
-        .run_with(move || (App::new(params, Duration::from_millis(200), "abcdefghijklmnopqrstuvwxyz".to_owned()), Task::none()))?;
+        .run_with(move || (App::new(params, Duration::from_millis(200), String::from_iter(chars)), Task::none()))?;
 
     Ok(())
 }

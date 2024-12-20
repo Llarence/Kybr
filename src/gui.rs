@@ -1,6 +1,7 @@
-use std::{cmp::min, collections::VecDeque, time::{Duration, Instant}};
+use std::{cmp::min, collections::VecDeque, process::exit, time::{Duration, Instant}};
 
 use iced::{event, keyboard::Key, widget::{column, text, Column}, Alignment::Center, Event, Fill, Subscription};
+use rand::Rng;
 
 use crate::keyboard::{InputKey, IN_KEYS_COUNT, LEFT_KEYS, OUT_KEYS, RIGHT_KEYS};
 
@@ -15,7 +16,8 @@ pub struct App {
 
     target: String,
     garbage_index: usize,
-    hinted: bool
+    hinted: bool,
+    left: bool
 }
 
 #[derive(Debug, Clone)]
@@ -26,20 +28,23 @@ pub enum Message {
 
 impl App {
     pub fn new(params: [InputKey; IN_KEYS_COUNT], cutoff: Duration, target: String) -> Self {
-        Self { params, cutoff, left_keys: VecDeque::new(), right_keys: VecDeque::new(), target, garbage_index: 0, hinted: false }
+        Self { params, cutoff, left_keys: VecDeque::new(), right_keys: VecDeque::new(), target, garbage_index: 0, hinted: false, left: rand::thread_rng().gen_bool(0.5) }
     }
 
     pub fn view(&self) -> Column<Message> {
-        let hint = if self.hinted {
-            if let Some(char) = self.target.chars().nth(self.garbage_index) {
-                let key = self.params[OUT_KEYS.iter().position(|value| *value == char).unwrap()];
+        if self.target.is_empty() {
+            // Cringe
+            exit(0)
+        }
 
-                text(format!("{}:{}", LEFT_KEYS[key.left], RIGHT_KEYS[key.right]))
-            } else {
-                text("")
-            }
+        let hint = if self.hinted {
+            let char = self.target.chars().nth(self.garbage_index).unwrap();
+            let key = self.params[OUT_KEYS.iter().position(|value| *value == char).unwrap()];
+            text(format!("{}:{}", LEFT_KEYS[key.left], RIGHT_KEYS[key.right]))
         } else {
-            text("")
+            let char = self.target.chars().nth(self.garbage_index).unwrap();
+            let key = self.params[OUT_KEYS.iter().position(|value| *value == char).unwrap()];
+            text(format!(":{}", if self.left { LEFT_KEYS[key.left] } else { RIGHT_KEYS[key.right] }))
         };
 
         let mut pad = "".to_owned();
@@ -68,9 +73,10 @@ impl App {
                         self.garbage_index -= 1;
                         self.target.remove(0);
                     }
-                } else if self.garbage_index == 0 && self.target.chars().next() == Some(OUT_KEYS[index]) {
+                } else if self.garbage_index == 0 && self.target.starts_with(OUT_KEYS[index]) {
                     self.target.remove(0);
                     self.hinted = false;
+                    self.left = !self.left;
                 } else {
                     self.target.insert(0, OUT_KEYS[index]);
 
@@ -91,6 +97,16 @@ impl App {
                     let time = Instant::now();
 
                     if let Some(char) = chars.chars().next() {
+                        if char == '`' {
+                            // Cringe
+                            exit(0)
+                        }
+
+                        if char == '=' {
+                            self.hinted = true;
+                            return
+                        }
+
                         if let Some(index) = LEFT_KEYS.iter().position(|curr| *curr == char) {
                             self.left_keys.push_back((index, time));
                             self.refresh_keys(time);

@@ -78,7 +78,7 @@ impl InputKey {
     }
 
     // LEFT_KEYS_COUNT and RIGHT_KEYS_COUNT < BYTE
-    pub fn to_bytes(&self) -> [u8; 2] {
+    pub fn as_bytes(&self) -> [u8; 2] {
         [self.left as u8, self.right as u8]
     }
 }
