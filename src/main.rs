@@ -49,7 +49,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut file = File::options().read(true).open(PATH)?;
     let mut buf: [u8; 2] = [0, 0];
     for param in params.iter_mut() {
-        file.read_exact(&mut buf)?;
+        if file.read(&mut buf)? != buf.len() {
+            break;
+        }
+
         *param = InputKey::from_bytes(buf);
     }
 

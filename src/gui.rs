@@ -44,7 +44,11 @@ impl App {
         } else {
             let char = self.target.chars().nth(self.garbage_index).unwrap();
             let key = self.params[OUT_KEYS.iter().position(|value| *value == char).unwrap()];
-            text(format!(":{}", if self.left { LEFT_KEYS[key.left] } else { RIGHT_KEYS[key.right] }))
+            if self.left {
+                text(format!("{}:", LEFT_KEYS[key.left]))
+            } else {
+                text(format!(":{}", RIGHT_KEYS[key.right]))
+            }
         };
 
         let mut pad = "".to_owned();
