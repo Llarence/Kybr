@@ -3,7 +3,7 @@ use std::{cmp::min, collections::VecDeque, process::exit, time::{Duration, Insta
 use iced::{event, keyboard::Key, widget::{column, text, Column}, Alignment::Center, Event, Fill, Subscription};
 use rand::Rng;
 
-use crate::keyboard::{InputKey, IN_KEYS_COUNT, LEFT_KEYS, OUT_KEYS, RIGHT_KEYS};
+use crate::key_converter::{InputKey, IN_KEYS_COUNT, LEFT_KEYS, OUT_KEYS, RIGHT_KEYS};
 
 pub struct App {
     params: [InputKey; IN_KEYS_COUNT],

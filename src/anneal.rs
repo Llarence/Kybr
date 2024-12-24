@@ -1,7 +1,7 @@
 use argmin::{core::CostFunction, solver::simulatedannealing::Anneal};
 use rand::{thread_rng, Rng};
 
-use crate::keyboard::{index_pair, InputKey, IN_KEYS_COUNT, OUT_KEYS_COUNT, OUT_KEY_PAIR_PROBS};
+use crate::key_converter::{index_pair, InputKey, IN_KEYS_COUNT, OUT_KEYS_COUNT, OUT_KEY_PAIR_PROBS};
 
 // Only the first OUT_KEYS_COUNT are actually used for the cost
 type State = [InputKey; IN_KEYS_COUNT];
