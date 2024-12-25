@@ -84,8 +84,8 @@ impl InputKey {
 }
 
 impl fmt::Display for InputKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("InputKey")
+    fn fmt(&self, format: &mut fmt::Formatter<'_>) -> fmt::Result {
+        format.debug_struct("InputKey")
             .field("left", &LEFT_KEYS[self.left])
             .field("right", &RIGHT_KEYS[self.right])
             .finish()

@@ -13,3 +13,4 @@ iced = "0.13.1"
 include_data = "1.0.1"
 phf = { version = "0.11.2", features = ["macros"] }
 rand = "0.8.5"
+sudo = "0.6.0"

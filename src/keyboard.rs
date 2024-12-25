@@ -1,6 +1,8 @@
-use std::{fs::File, io::{Error, Write}, slice::from_raw_parts};
+use std::{fs::File, io::{Error, Read, Write}, slice::from_raw_parts, time::Duration};
+
 use phf::phf_map;
 
+use crate::{input::input_event, keyboard};
 use crate::uhid::{uhid_event, uhid_event__bindgen_ty_1, uhid_event_type_UHID_CREATE2, uhid_event_type_UHID_DESTROY, uhid_event_type_UHID_INPUT2, BUS_USB};
 
 const NAME: [u8; 5] = [b'T', b'e', b's', b't', b'\0'];
@@ -41,7 +43,8 @@ const DESC: [u8; 63] = [
 
 const SHIFT: u8 = 0b0000_0010;
 
-const PRESS_MAP: phf::Map<char, KeyPress> = phf_map! {
+// Would rather use phf
+const CHAR_TO_KEYPRESS: phf::Map<char, keyboard::KeyPress> = phf_map! {
     'a' => KeyPress::new(4, &[]),
     'A' => KeyPress::new(4, &[SHIFT]),
     'b' => KeyPress::new(5, &[]),
@@ -101,6 +104,41 @@ const PRESS_MAP: phf::Map<char, KeyPress> = phf_map! {
     '.' => KeyPress::new(55, &[])
 };
 
+// These are from the input.rs file, but phf needs them as u16
+// Should add non-letters (other than ;,.)
+const CODE_TO_CHAR: phf::Map<u16, char> = phf_map! {
+    16u16 => 'Q',
+    17u16 => 'W',
+    18u16 => 'E',
+    19u16 => 'R',
+    20u16 => 'T',
+    21u16 => 'Y',
+    22u16 => 'U',
+    23u16 => 'I',
+    24u16 => 'O',
+    25u16 => 'P',
+    30u16 => 'A',
+    31u16 => 'S',
+    32u16 => 'D',
+    33u16 => 'F',
+    34u16 => 'G',
+    35u16 => 'H',
+    36u16 => 'J',
+    37u16 => 'K',
+    38u16 => 'L',
+    39u16 => ';',
+    44u16 => 'Z',
+    45u16 => 'X',
+    46u16 => 'C',
+    47u16 => 'V',
+    48u16 => 'B',
+    49u16 => 'N',
+    50u16 => 'M',
+    51u16 => ',',
+    52u16 => '.'
+};
+
+#[derive(Clone, Copy)]
 pub struct KeyPress {
     key: u8,
     mods: u8
@@ -116,20 +154,34 @@ impl KeyPress {
             i += 1;
         }
 
-        KeyPress{ key, mods }
+        KeyPress { key, mods }
     }
+
+    pub fn from_input(data: [u8; 8]) -> Self {
+        KeyPress { key: data[2], mods: data[0] }
+    }
+
 
     pub fn to_input(&self) -> [u8; 8] {
         [self.mods, 0, self.key, 0, 0, 0, 0, 0]
     }
 }
 
+impl PartialEq for KeyPress {
+    fn eq(&self, other: &Self) -> bool {
+        // This is a bitwise check for equality with a mask
+        // The mask is an ugly hack and as this should jut use a boolean for what it is doing right now
+        // Later it may be important to have a bit mask
+        self.key == other.key && (0b0000_0010 & (self.mods ^ other.mods) == 0)
+    }
+}
+
 #[allow(clippy::upper_case_acronyms)]
-pub struct UHID {
+pub struct HIDWriter {
     file: File
 }
 
-impl UHID {
+impl HIDWriter {
     pub fn open() -> Result<Self, Error> {
         let mut uhid = Self { file: File::create("/dev/uhid")? };
 
@@ -148,14 +200,14 @@ impl UHID {
         Ok(uhid)
     }
 
-    pub fn press(&mut self, character: char) -> Result<(), Error> {
-        self.push_input_event(&PRESS_MAP[&character].to_input())?;
+    pub fn press(&mut self, character: char) -> Result<(), Box<dyn std::error::Error>> {
+        self.push_input_event(&CHAR_TO_KEYPRESS.get(&character).ok_or("Invalid character")?.to_input())?;
         self.push_input_event(&[0, 0, 0, 0, 0, 0, 0, 0])?;
 
         Ok(())
     }
 
-    fn push_input_event(&mut self, event: &[u8; 8]) -> Result<(), Error> {
+    fn push_input_event(&mut self, event: &[u8; 8]) -> Result<(), Box<dyn std::error::Error>> {
         let mut data = uhid_event__bindgen_ty_1::default();
 
         let input= unsafe { &mut data.input2 };
@@ -173,9 +225,46 @@ impl UHID {
     }
 }
 
-impl Drop for UHID {
+impl Drop for HIDWriter {
     fn drop(&mut self) {
         // If it errs it is not really a big deal there is nothing the code can do
         let _ = self.push_event(&uhid_event { type_: uhid_event_type_UHID_DESTROY, u: uhid_event__bindgen_ty_1::default() });
+    }
+}
+
+pub struct HIDReader {
+    file: File
+}
+
+impl HIDReader {
+    pub fn open(id: &str) -> Result<Self, Error> {
+        let hid = Self { file: File::open("/dev/input/event".to_owned() + id)? };
+
+        Ok(hid)
+    }
+
+    pub fn read(&mut self) -> Result<Option<(char, Duration)>, Box<dyn std::error::Error>> {
+        // This isn't packed so I don't know why it is valid to load read in raw memory, but whatever
+        // That's what the info I read said to do
+        let mut input_event = input_event::default();
+
+        // Probably nicer way to write the cast
+        self.file.read_exact(unsafe { &mut *(&mut input_event as *mut input_event as *mut [u8; size_of::<input_event>()]) } )?;
+
+        let duration = Duration::new(input_event.time.tv_sec as u64, input_event.time.tv_usec as u32 * 1000);
+
+        if input_event.value != 1 || input_event.type_ != 1 || input_event.code >= u8::MAX.into() {
+            return Ok(None);
+        }
+
+        let maybe_char = CODE_TO_CHAR.get(&input_event.code);
+
+        dbg!(input_event);
+
+        if let Some(character) = maybe_char {
+            Ok(Some((*character, duration)))
+        } else {
+            Ok(None)
+        }
     }
 }
