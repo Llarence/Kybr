@@ -107,33 +107,33 @@ const CHAR_TO_KEYPRESS: phf::Map<char, keyboard::KeyPress> = phf_map! {
 // These are from the input.rs file, but phf needs them as u16
 // Should add non-letters (other than ;,.)
 const CODE_TO_CHAR: phf::Map<u16, char> = phf_map! {
-    16u16 => 'Q',
-    17u16 => 'W',
-    18u16 => 'E',
-    19u16 => 'R',
-    20u16 => 'T',
-    21u16 => 'Y',
-    22u16 => 'U',
-    23u16 => 'I',
-    24u16 => 'O',
-    25u16 => 'P',
-    30u16 => 'A',
-    31u16 => 'S',
-    32u16 => 'D',
-    33u16 => 'F',
-    34u16 => 'G',
-    35u16 => 'H',
-    36u16 => 'J',
-    37u16 => 'K',
-    38u16 => 'L',
+    16u16 => 'q',
+    17u16 => 'w',
+    18u16 => 'e',
+    19u16 => 'r',
+    20u16 => 't',
+    21u16 => 'u',
+    22u16 => 'u',
+    23u16 => 'i',
+    24u16 => 'o',
+    25u16 => 'p',
+    30u16 => 'a',
+    31u16 => 's',
+    32u16 => 'd',
+    33u16 => 'f',
+    34u16 => 'g',
+    35u16 => 'h',
+    36u16 => 'j',
+    37u16 => 'k',
+    38u16 => 'l',
     39u16 => ';',
-    44u16 => 'Z',
-    45u16 => 'X',
-    46u16 => 'C',
-    47u16 => 'V',
-    48u16 => 'B',
-    49u16 => 'N',
-    50u16 => 'M',
+    44u16 => 'z',
+    45u16 => 'x',
+    46u16 => 'c',
+    47u16 => 'v',
+    48u16 => 'b',
+    49u16 => 'n',
+    50u16 => 'm',
     51u16 => ',',
     52u16 => '.'
 };
@@ -258,8 +258,6 @@ impl HIDReader {
         }
 
         let maybe_char = CODE_TO_CHAR.get(&input_event.code);
-
-        dbg!(input_event);
 
         if let Some(character) = maybe_char {
             Ok(Some((*character, duration)))
