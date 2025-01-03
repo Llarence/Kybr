@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut rng = rand::thread_rng();
     let mut chars = vec![];
-    for char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".chars() {
+    for char in "abcdefghijklmnopqrstuvwxyz".chars() { /*ABCDEFGHIJKLMNOPQRSTUVWXYZ*/
         if rng.gen_range(0.0..1.0) > 0.0 {
             chars.push(char);
         }

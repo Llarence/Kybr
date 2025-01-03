@@ -107,16 +107,18 @@ const CHAR_TO_KEYPRESS: phf::Map<char, keyboard::KeyPress> = phf_map! {
 // These are from the input.rs file, but phf needs them as u16
 // Should add non-letters (other than ;,.)
 const CODE_TO_CHAR: phf::Map<u16, char> = phf_map! {
+    1u16 => '\x1B',
     16u16 => 'q',
     17u16 => 'w',
     18u16 => 'e',
     19u16 => 'r',
     20u16 => 't',
-    21u16 => 'u',
+    21u16 => 'y',
     22u16 => 'u',
     23u16 => 'i',
     24u16 => 'o',
     25u16 => 'p',
+    29u16 => '\x07',
     30u16 => 'a',
     31u16 => 's',
     32u16 => 'd',
@@ -127,6 +129,8 @@ const CODE_TO_CHAR: phf::Map<u16, char> = phf_map! {
     37u16 => 'k',
     38u16 => 'l',
     39u16 => ';',
+    41u16 => '`',
+    42u16 => '\x0E',
     44u16 => 'z',
     45u16 => 'x',
     46u16 => 'c',
@@ -136,6 +140,39 @@ const CODE_TO_CHAR: phf::Map<u16, char> = phf_map! {
     50u16 => 'm',
     51u16 => ',',
     52u16 => '.'
+};
+
+pub const CHAR_TO_SHIFTED: phf::Map<char, char> = phf_map! {
+    'q' => 'Q',
+    'w' => 'W',
+    'e' => 'E',
+    'r' => 'R',
+    't' => 'T',
+    'y' => 'Y',
+    'u' => 'U',
+    'i' => 'I',
+    'o' => 'O',
+    'p' => 'P',
+    'a' => 'A',
+    's' => 'S',
+    'd' => 'D',
+    'f' => 'F',
+    'g' => 'G',
+    'h' => 'H',
+    'j' => 'J',
+    'k' => 'K',
+    'l' => 'L',
+    ';' => ':',
+    '`' => '~',
+    'z' => 'Z',
+    'x' => 'X',
+    'c' => 'C',
+    'v' => 'V',
+    'b' => 'B',
+    'n' => 'N',
+    'm' => 'M',
+    ',' => '<',
+    '.' => '>'
 };
 
 #[derive(Clone, Copy)]
@@ -252,7 +289,6 @@ impl HIDReader {
         self.file.read_exact(unsafe { &mut *(&mut input_event as *mut input_event as *mut [u8; size_of::<input_event>()]) } )?;
 
         let duration = Duration::new(input_event.time.tv_sec as u64, input_event.time.tv_usec as u32 * 1000);
-
         if input_event.value != 1 || input_event.type_ != 1 || input_event.code >= u8::MAX.into() {
             return Ok(None);
         }
@@ -263,6 +299,14 @@ impl HIDReader {
             Ok(Some((*character, duration)))
         } else {
             Ok(None)
+        }
+    }
+
+    pub fn read_valid(&mut self) -> Result<(char, Duration), Box<dyn std::error::Error>> {
+        loop {
+            if let Some(res) = self.read()? {
+                return Ok(res);
+            }
         }
     }
 }

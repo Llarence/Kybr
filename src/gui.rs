@@ -13,7 +13,7 @@ pub struct App {
     target: String,
     garbage_index: usize,
     hinted: bool,
-    left: bool
+    start_hint: u8
 }
 
 #[derive(Debug, Clone)]
@@ -24,7 +24,7 @@ pub enum Message {
 
 impl App {
     pub fn new(params: [InputKey; IN_KEYS_COUNT], cutoff: Duration, target: String) -> Self {
-        Self { remapper: Remapper::new(params, cutoff), start: Instant::now(), target, garbage_index: 0, hinted: false, left: rand::thread_rng().gen_bool(0.5) }
+        Self { remapper: Remapper::new(params, cutoff), start: Instant::now(), target, garbage_index: 0, hinted: false, start_hint: rand::thread_rng().gen_range(0..2) }
     }
 
     pub fn view(&self) -> Column<Message> {
@@ -40,10 +40,12 @@ impl App {
         } else {
             let char = self.target.chars().nth(self.garbage_index).unwrap();
             let key = self.remapper.params[OUT_KEYS.iter().position(|value| *value == char).unwrap()];
-            if self.left {
+            if self.start_hint == 0 {
                 text(format!("{}:", LEFT_KEYS[key.left]))
-            } else {
+            } else if self.start_hint == 1 {
                 text(format!(":{}", RIGHT_KEYS[key.right]))
+            } else {
+                text(":")
             }
         };
 
@@ -82,7 +84,10 @@ impl App {
                     } else if self.garbage_index == 0 && self.target.starts_with(char) {
                         self.target.remove(0);
                         self.hinted = false;
-                        self.left = !self.left;
+                        self.start_hint += 1;
+                        if self.start_hint == 3 {
+                            self.start_hint = 0;
+                        }
                     } else {
                         self.target.insert(0, char);
 
