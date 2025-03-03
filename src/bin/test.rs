@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let size = chars.len();
-    for i in 0..size - 1 {
+    for i in 1..size - 1 {
         chars.swap(i, rng.gen_range(i..size) as usize);
     }
     iced::application("Tester", App::update, App::view)
