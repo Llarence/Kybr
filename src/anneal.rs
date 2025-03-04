@@ -1,5 +1,5 @@
 use argmin::{core::CostFunction, solver::simulatedannealing::Anneal};
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 
 use crate::key_converter::{index_pair, InputKey, IN_KEYS_COUNT, OUT_KEYS_COUNT, OUT_KEY_PAIR_PROBS};
 
@@ -37,10 +37,10 @@ impl Anneal for Problem {
     fn anneal(&self, param: &Self::Param, extent: Self::Float) -> Result<Self::Output, argmin::core::Error> {
         let mut out: State = *param;
 
-        let mut rng = thread_rng();
+        let mut rng = rng();
         // Lazy ceilling
         for _i in 0..((extent + 1.0) as u64) {
-            out.swap(rng.gen_range(0..IN_KEYS_COUNT), rng.gen_range(0..IN_KEYS_COUNT));
+            out.swap(rng.random_range(0..IN_KEYS_COUNT), rng.random_range(0..IN_KEYS_COUNT));
         }
 
         Ok(out)

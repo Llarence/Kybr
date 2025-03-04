@@ -20,17 +20,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         *param = InputKey::from_bytes(buf);
     }
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut chars = vec![];
     for char in "abcdefghijklmnopqrstuvwxyz".chars() { /*ABCDEFGHIJKLMNOPQRSTUVWXYZ*/
-        if rng.gen_range(0.0..1.0) > 0.0 {
+        if rng.random_range(0.0..1.0) > 0.0 {
             chars.push(char);
         }
     }
 
     let size = chars.len();
     for i in 1..size - 1 {
-        chars.swap(i, rng.gen_range(i..size) as usize);
+        chars.swap(i, rng.random_range(i..size) as usize);
     }
     iced::application("Tester", App::update, App::view)
         .subscription(App::subscription)

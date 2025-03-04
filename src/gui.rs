@@ -24,7 +24,7 @@ pub enum Message {
 
 impl App {
     pub fn new(params: [InputKey; IN_KEYS_COUNT], cutoff: Duration, target: String) -> Self {
-        Self { remapper: Remapper::new(params, cutoff), start: Instant::now(), target, garbage_index: 0, hinted: false, start_hint: rand::thread_rng().gen_range(0..2) }
+        Self { remapper: Remapper::new(params, cutoff), start: Instant::now(), target, garbage_index: 0, hinted: false, start_hint: rand::rng().random_range(0..2) }
     }
 
     pub fn view(&self) -> Column<Message> {

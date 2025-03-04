@@ -5,6 +5,8 @@ use phf::phf_map;
 use crate::{input::input_event, keyboard};
 use crate::uhid::{uhid_event, uhid_event__bindgen_ty_1, uhid_event_type_UHID_CREATE2, uhid_event_type_UHID_DESTROY, uhid_event_type_UHID_INPUT2, BUS_USB};
 
+// TODO: Add pass through for keys that aren't used
+
 const NAME: [u8; 5] = [b'T', b'e', b's', b't', b'\0'];
 const DESC: [u8; 63] = [
     0x05, 0x01,
@@ -118,10 +120,30 @@ const CHAR_TO_KEYPRESS: phf::Map<char, keyboard::KeyPress> = phf_map! {
     ')' => KeyPress::new(39, &[SHIFT]),
     '↲' => KeyPress::new(40, &[]),
     '←' => KeyPress::new(42, &[]),
+    '→' => KeyPress::new(43, &[]),
     ' ' => KeyPress::new(44, &[]),
+    '-' => KeyPress::new(45, &[]),
+    '_' => KeyPress::new(45, &[SHIFT]),
+    '=' => KeyPress::new(46, &[]),
+    '+' => KeyPress::new(46, &[SHIFT]),
+    '[' => KeyPress::new(47, &[]),
+    '{' => KeyPress::new(47, &[SHIFT]),
+    ']' => KeyPress::new(48, &[]),
+    '}' => KeyPress::new(48, &[SHIFT]),
+    '\\' => KeyPress::new(49, &[]),
+    '|' => KeyPress::new(49, &[SHIFT]),
+    ';' => KeyPress::new(51, &[]),
+    ':' => KeyPress::new(51, &[SHIFT]),
     '\'' => KeyPress::new(52, &[]),
+    '"' => KeyPress::new(52, &[SHIFT]),
+    '`' => KeyPress::new(53, &[]),
+    '~' => KeyPress::new(53, &[SHIFT]),
     ',' => KeyPress::new(54, &[]),
-    '.' => KeyPress::new(55, &[])
+    '<' => KeyPress::new(54, &[SHIFT]),
+    '.' => KeyPress::new(55, &[]),
+    '>' => KeyPress::new(55, &[SHIFT]),
+    '/' => KeyPress::new(56, &[]),
+    '?' => KeyPress::new(56, &[SHIFT])
 };
 
 // These are from the input.rs file, but phf needs them as u16
@@ -168,6 +190,7 @@ const CODE_TO_CHAR: phf::Map<u16, char> = phf_map! {
     40u16 => '\'',
     41u16 => '`',
     42u16 => '\x0E',
+    43u16 => '\\',
     44u16 => 'z',
     45u16 => 'x',
     46u16 => 'c',
