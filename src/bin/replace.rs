@@ -4,7 +4,49 @@ use kybr::{key_converter::{InputKey, IN_KEYS_COUNT, LEFT_KEYS, OUT_KEYS, RIGHT_K
 
 const PATH: &str = "data/keys.data";
 
-fn run(keyboard_id: &str, hid_id: &str, params: &[InputKey; IN_KEYS_COUNT] ) -> Result<(), Box<dyn std::error::Error>> {
+fn pass_through(reader: &mut HIDReader, writer: &mut HIDWriter) -> Result<(), Box<dyn std::error::Error>> {
+    loop {
+        if let Ok(res) = reader.read_valid() {
+            if res.0 == '\x1B' {
+                return Ok(());
+            }
+
+            writer.press(res.0)?;
+        }
+    }
+}
+
+fn display_hint(reader: &mut HIDReader, params: &[InputKey; IN_KEYS_COUNT]) {
+    if let Ok(res) = reader.read_valid() {
+        let character = if res.0 == '\x0E' {
+            if let Ok(res) = reader.read_valid() {
+                if let Some(res) = CHAR_TO_SHIFTED.get(&res.0) {
+                    res.to_owned()
+                } else {
+                    return;
+                }
+            } else {
+                return;
+            }
+        } else {
+            res.0
+        };
+
+
+        if let Some(index) = OUT_KEYS.iter().position(|value| *value == character) {
+            let key = params[index];
+
+            Command::new("notify-send")
+                .arg(format!("{}:{}", LEFT_KEYS[key.left], RIGHT_KEYS[key.right]))
+                .arg("-t")
+                .arg("1000")
+                .output()
+                .expect("Failed to notify-send");
+        }
+    }
+}
+
+fn run(keyboard_id: &str, hid_id: &str, params: &[InputKey; IN_KEYS_COUNT]) -> Result<(), Box<dyn std::error::Error>> {
     Command::new("xinput")
         .arg("float")
         .arg(keyboard_id)
@@ -16,52 +58,23 @@ fn run(keyboard_id: &str, hid_id: &str, params: &[InputKey; IN_KEYS_COUNT] ) -> 
     let mut remapper = Remapper::new(*params, Duration::from_millis(200));
 
     loop {
-        let res = reader.read();
-        match res {
-            Ok(Some(res)) => {
-                if res.0 == '\x1B' {
-                    return Ok(());
-                }
+        if let Ok(res) = reader.read_valid() {
+            if res.0 == '\x1B' {
+                pass_through(&mut reader, &mut writer)?;
 
-                if res.0 == '\x07' {
-                    if let Ok(res) = reader.read_valid() {
-                        let character = if res.0 == '\x0E' {
-                            if let Ok(res) = reader.read_valid() {
-                                if let Some(res) = CHAR_TO_SHIFTED.get(&res.0) {
-                                    res.to_owned()
-                                } else {
-                                    continue;
-                                }
-                            } else {
-                                continue;
-                            }
-                        } else {
-                            res.0
-                        };
+                continue;
+            }
 
+            if res.0 == '\x07' {
+                display_hint(&mut reader, params);
 
-                        if let Some(index) = OUT_KEYS.iter().position(|value| *value == character) {
-                            let key = params[index];
+                continue;
+            }
 
-                            Command::new("notify-send")
-                                .arg(format!("{}:{}", LEFT_KEYS[key.left], RIGHT_KEYS[key.right]))
-                                .arg("-t")
-                                .arg("1000")
-                                .output()
-                                .expect("Failed to notify-send");
-                        }
-                    }
-
-                    continue;
-                }
-
-                let character = remapper.push_key(res.0, res.1);
-                if let Some(character) = character {
-                    let _ = writer.press(character);
-                }
-            },
-            Ok(None) => (),
-            Err(error) => println!("{}", error)
+            let character = remapper.push_key(res.0, res.1);
+            if let Some(character) = character {
+                writer.press(character)?;
+            }
         }
     }
 }

@@ -143,7 +143,9 @@ const CHAR_TO_KEYPRESS: phf::Map<char, keyboard::KeyPress> = phf_map! {
     '.' => KeyPress::new(55, &[]),
     '>' => KeyPress::new(55, &[SHIFT]),
     '/' => KeyPress::new(56, &[]),
-    '?' => KeyPress::new(56, &[SHIFT])
+    '?' => KeyPress::new(56, &[SHIFT]),
+    '\x07' => KeyPress::new(224, &[]),
+    '\x0E' => KeyPress::new(225, &[])
 };
 
 // These are from the input.rs file, but phf needs them as u16
