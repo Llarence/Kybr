@@ -99,7 +99,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let x_id = x_id.clone();
         let slave_id = slave_id.clone();
-        panic::set_hook(Box::new(move |_| { reenable(&x_id, &slave_id); } ));
+        panic::set_hook(Box::new(move |_| { reenable(&x_id, &slave_id); } ))
+    }
+
+    {
+        let x_id = x_id.clone();
+        let slave_id = slave_id.clone();
+        ctrlc::set_handler(move || { reenable(&x_id, &slave_id); } )?
     }
 
     let result = run(&x_id, &hid_id, &params);

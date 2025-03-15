@@ -9,6 +9,7 @@ bindgen = "0.71.1"
 [dependencies]
 argmin = "0.10.0"
 argmin-observer-slog = "0.1.0"
+ctrlc = { version = "3.4.5", features = ["termination"] }
 iced = "0.13.1"
 include_data = "1.0.1"
 phf = { version = "0.11.3", features = ["macros"] }
