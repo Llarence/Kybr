@@ -2,10 +2,10 @@ use std::{fs::File, io::{Error, Read, Write}, slice::from_raw_parts, time::Durat
 
 use phf::phf_map;
 
-use crate::{input::input_event, keyboard};
+use crate::{input::{input_event, EV_KEY}, keyboard};
 use crate::uhid::{uhid_event, uhid_event__bindgen_ty_1, uhid_event_type_UHID_CREATE2, uhid_event_type_UHID_DESTROY, uhid_event_type_UHID_INPUT2, BUS_USB};
 
-// TODO: Add pass through for keys that aren't used
+// Maybe make the key rollover higher
 
 const NAME: [u8; 5] = [b'T', b'e', b's', b't', b'\0'];
 const DESC: [u8; 63] = [
@@ -43,7 +43,66 @@ const DESC: [u8; 63] = [
     0xC0
 ];
 
+const CTRL: u8 = 0b0000_0001;
 const SHIFT: u8 = 0b0000_0010;
+
+// TODO: Merge the two following hashmaps
+
+pub const CHAR_TO_KEYCODE: phf::Map<char, u8> = phf_map! {
+    'a' => 4,
+    'b' => 5,
+    'c' => 6,
+    'd' => 7,
+    'e' => 8,
+    'f' => 9,
+    'g' => 10,
+    'h' => 11,
+    'i' => 12,
+    'j' => 13,
+    'k' => 14,
+    'l' => 15,
+    'm' => 16,
+    'n' => 17,
+    'o' => 18,
+    'p' => 19,
+    'q' => 20,
+    'r' => 21,
+    's' => 22,
+    't' => 23,
+    'u' => 24,
+    'v' => 25,
+    'w' => 26,
+    'x' => 27,
+    'y' => 28,
+    'z' => 29,
+    '1' => 30,
+    '2' => 31,
+    '3' => 32,
+    '4' => 33,
+    '5' => 34,
+    '6' => 35,
+    '7' => 36,
+    '8' => 37,
+    '9' => 38,
+    '0' => 39,
+    '↲' => 40,
+    '←' => 42,
+    '→' => 43,
+    ' ' => 44,
+    '-' => 45,
+    '=' => 46,
+    '[' => 47,
+    ']' => 48,
+    '\\' => 49,
+    ';' => 51,
+    '\'' => 52,
+    '`' => 53,
+    ',' => 54,
+    '.' => 55,
+    '/' => 56,
+    '\x07' => 224,
+    '\x0E' => 225
+};
 
 const CHAR_TO_KEYPRESS: phf::Map<char, keyboard::KeyPress> = phf_map! {
     'a' => KeyPress::new(4, &[]),
@@ -253,6 +312,81 @@ pub const CHAR_TO_SHIFTED: phf::Map<char, char> = phf_map! {
     '.' => '>'
 };
 
+pub struct BoardState {
+    state: [u8; 8]
+}
+
+impl BoardState {
+    pub const CLEAR: BoardState = BoardState { state: [0, 0, 0, 0, 0, 0, 0, 0] };
+
+    pub fn new_single(mods: u8, key: u8) -> Self {
+        Self { state: [mods, 0, key, 0, 0, 0, 0, 0] }
+    }
+
+    fn get_key_mod(character: u8) -> u8 {
+        match character {
+            224 => CTRL,
+            225 => SHIFT,
+            _ => 0b0000_0000
+        }
+    }
+
+    pub fn push_key(&mut self, key: u8) -> bool {
+        let key_mod = Self::get_key_mod(key);
+
+        if key_mod != 0b0000_0000 {
+            self.state[0] |= key_mod;
+            return true;
+        }
+
+        let mut index = 0;
+        for i in 2..7 {
+            if self.state[i] == key {
+                return true;
+            }
+
+            if index == 0 && self.state[i] == 0 {
+                index = i;
+            }
+        }
+
+        if index == 0 {
+            return false;
+        }
+
+        self.state[index] = key;
+
+        true
+    }
+
+    pub fn pop_key(&mut self, key: u8) {
+        let key_mod = Self::get_key_mod(key);
+
+        if key_mod != 0b0000_0000 {
+            self.state[0] &= !key_mod;
+            return;
+        }
+
+        for i in 2..7 {
+            if self.state[i] == key {
+                self.state[i] = 0;
+                break;
+            }
+        }
+    }
+
+    pub fn to_event(&self) -> uhid_event {
+        let mut data = uhid_event__bindgen_ty_1::default();
+
+        let input= unsafe { &mut data.input2 };
+
+        input.size = 8;
+        input.data[..8].copy_from_slice(&self.state);
+
+        uhid_event { type_: uhid_event_type_UHID_INPUT2, u: data }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct KeyPress {
     key: u8,
@@ -261,7 +395,7 @@ pub struct KeyPress {
 
 impl KeyPress {
     pub const fn new(key: u8, in_mods: &[u8]) -> Self {
-        let mut mods = 0;
+        let mut mods = 0b0000_0000;
 
         let mut i = 0;
         while i < in_mods.len() {
@@ -272,22 +406,16 @@ impl KeyPress {
         KeyPress { key, mods }
     }
 
-    pub fn from_input(data: [u8; 8]) -> Self {
-        KeyPress { key: data[2], mods: data[0] }
+    pub fn add_mod(&mut self, new: u8) {
+        self.mods |= new;
     }
 
-
-    pub fn to_input(&self) -> [u8; 8] {
-        [self.mods, 0, self.key, 0, 0, 0, 0, 0]
+    pub fn to_press(&self) -> BoardState {
+        BoardState::new_single(self.mods, self.key)
     }
-}
 
-impl PartialEq for KeyPress {
-    fn eq(&self, other: &Self) -> bool {
-        // This is a bitwise check for equality with a mask
-        // The mask is an ugly hack and as this should jut use a boolean for what it is doing right now
-        // Later it may be important to have a bit mask
-        self.key == other.key && (0b0000_0010 & (self.mods ^ other.mods) == 0)
+    pub fn to_release(&self) -> BoardState {
+        BoardState::CLEAR
     }
 }
 
@@ -315,22 +443,17 @@ impl HIDWriter {
         Ok(uhid)
     }
 
-    pub fn press(&mut self, character: char) -> Result<(), Box<dyn std::error::Error>> {
-        self.push_input_event(&CHAR_TO_KEYPRESS.get(&character).ok_or("Invalid character")?.to_input())?;
-        self.push_input_event(&[0, 0, 0, 0, 0, 0, 0, 0])?;
+    pub fn tap(&mut self, character: char) -> Result<(), Box<dyn std::error::Error>> {
+        let inp = CHAR_TO_KEYPRESS.get(&character).ok_or("Invalid character")?;
+
+        self.push_state(&inp.to_press())?;
+        self.push_state(&inp.to_release())?;
 
         Ok(())
     }
 
-    fn push_input_event(&mut self, event: &[u8; 8]) -> Result<(), Box<dyn std::error::Error>> {
-        let mut data = uhid_event__bindgen_ty_1::default();
-
-        let input= unsafe { &mut data.input2 };
-
-        input.size = 8;
-        input.data[..8].copy_from_slice(event);
-
-        self.push_event(&uhid_event { type_: uhid_event_type_UHID_INPUT2, u: data })?;
+    pub fn push_state(&mut self, state: &BoardState) -> Result<(), Box<dyn std::error::Error>> {
+        self.push_event(&state.to_event())?;
 
         Ok(())
     }
@@ -351,6 +474,12 @@ pub struct HIDReader {
     file: File
 }
 
+pub struct KeyInput {
+    pub character: char,
+    pub time: Duration,
+    pub down: bool
+}
+
 impl HIDReader {
     pub fn open(id: &str) -> Result<Self, Error> {
         let hid = Self { file: File::open("/dev/input/event".to_owned() + id)? };
@@ -358,7 +487,7 @@ impl HIDReader {
         Ok(hid)
     }
 
-    pub fn read(&mut self) -> Result<Option<(char, Duration)>, Box<dyn std::error::Error>> {
+    pub fn read(&mut self) -> Result<Option<KeyInput>, Box<dyn std::error::Error>> {
         // This isn't packed so I don't know why it is valid to load read in raw memory, but whatever
         // That's what the info I read said to do
         let mut input_event = input_event::default();
@@ -367,22 +496,36 @@ impl HIDReader {
         self.file.read_exact(unsafe { &mut *(&mut input_event as *mut input_event as *mut [u8; size_of::<input_event>()]) } )?;
 
         let duration = Duration::new(input_event.time.tv_sec as u64, input_event.time.tv_usec as u32 * 1000);
-        if input_event.value != 1 || input_event.type_ != 1 || input_event.code >= u8::MAX.into() {
+
+        let down = input_event.value == 1;
+        if !(down || input_event.value == 0) || input_event.type_ != EV_KEY as u16 || input_event.code >= u8::MAX.into() {
             return Ok(None);
         }
 
         let maybe_char = CODE_TO_CHAR.get(&input_event.code);
 
         if let Some(character) = maybe_char {
-            Ok(Some((*character, duration)))
+            Ok(Some(KeyInput { character: *character, time: duration, down }))
         } else {
             Ok(None)
         }
     }
 
-    pub fn read_valid(&mut self) -> Result<(char, Duration), Box<dyn std::error::Error>> {
+    pub fn read_valid(&mut self) -> Result<KeyInput, Box<dyn std::error::Error>> {
         loop {
             if let Some(res) = self.read()? {
+                return Ok(res);
+            }
+        }
+    }
+
+    pub fn read_valid_down(&mut self) -> Result<KeyInput, Box<dyn std::error::Error>> {
+        loop {
+            if let Some(res) = self.read()? {
+                if !res.down {
+                    continue;
+                }
+
                 return Ok(res);
             }
         }

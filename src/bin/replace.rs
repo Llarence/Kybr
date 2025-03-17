@@ -1,26 +1,39 @@
-use std::{env, fs::File, io::Read, panic, process::Command, sync::Arc, time::Duration};
+use std::{env, fs::File, io::Read, panic, process::{exit, Command}, sync::Arc, time::Duration};
 
-use kybr::{key_converter::{InputKey, IN_KEYS_COUNT, LEFT_KEYS, OUT_KEYS, RIGHT_KEYS}, keyboard::{HIDReader, HIDWriter, CHAR_TO_SHIFTED}, remapper::Remapper};
+use kybr::{key_converter::{InputKey, IN_KEYS_COUNT, LEFT_KEYS, OUT_KEYS, RIGHT_KEYS}, keyboard::{BoardState, HIDReader, HIDWriter, CHAR_TO_KEYCODE, CHAR_TO_SHIFTED}, remapper::Remapper};
 
 const PATH: &str = "data/keys.data";
 
 fn pass_through(reader: &mut HIDReader, writer: &mut HIDWriter) -> Result<(), Box<dyn std::error::Error>> {
+    let mut board = BoardState::CLEAR;
+
     loop {
         if let Ok(res) = reader.read_valid() {
-            if res.0 == '\x1B' {
+            if res.character == '\x1B' && res.down {
                 return Ok(());
             }
 
-            writer.press(res.0)?;
+            if let Some(keycode) =  CHAR_TO_KEYCODE.get(&res.character) {
+                if res.down {
+                    // If the push fails then do nothing
+                    if !board.push_key(*keycode) {
+                        continue;
+                    }
+                } else {
+                    board.pop_key(*keycode);
+                }
+
+                writer.push_state(&board)?;
+            }
         }
     }
 }
 
 fn display_hint(reader: &mut HIDReader, params: &[InputKey; IN_KEYS_COUNT]) {
-    if let Ok(res) = reader.read_valid() {
-        let character = if res.0 == '\x0E' {
+    if let Ok(res) = reader.read_valid_down() {
+        let character = if res.character == '\x0E' {
             if let Ok(res) = reader.read_valid() {
-                if let Some(res) = CHAR_TO_SHIFTED.get(&res.0) {
+                if let Some(res) = CHAR_TO_SHIFTED.get(&res.character) {
                     res.to_owned()
                 } else {
                     return;
@@ -29,7 +42,7 @@ fn display_hint(reader: &mut HIDReader, params: &[InputKey; IN_KEYS_COUNT]) {
                 return;
             }
         } else {
-            res.0
+            res.character
         };
 
 
@@ -40,6 +53,7 @@ fn display_hint(reader: &mut HIDReader, params: &[InputKey; IN_KEYS_COUNT]) {
                 .arg(format!("{}:{}", LEFT_KEYS[key.left], RIGHT_KEYS[key.right]))
                 .arg("-t")
                 .arg("1000")
+                .arg("-e")
                 .output()
                 .expect("Failed to notify-send");
         }
@@ -58,22 +72,22 @@ fn run(keyboard_id: &str, hid_id: &str, params: &[InputKey; IN_KEYS_COUNT]) -> R
     let mut remapper = Remapper::new(*params, Duration::from_millis(200));
 
     loop {
-        if let Ok(res) = reader.read_valid() {
-            if res.0 == '\x1B' {
+        if let Ok(res) = reader.read_valid_down() {
+            if res.character == '\x1B' {
                 pass_through(&mut reader, &mut writer)?;
 
                 continue;
             }
 
-            if res.0 == '\x07' {
+            if res.character == '\x07' {
                 display_hint(&mut reader, params);
 
                 continue;
             }
 
-            let character = remapper.push_key(res.0, res.1);
+            let character = remapper.push_key(res.character, res.time);
             if let Some(character) = character {
-                writer.press(character)?;
+                writer.tap(character)?;
             }
         }
     }
@@ -118,7 +132,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let x_id = x_id.clone();
         let slave_id = slave_id.clone();
-        ctrlc::set_handler(move || { reenable(&x_id, &slave_id); } )?
+        ctrlc::set_handler(move || { reenable(&x_id, &slave_id); exit(0) } )?
     }
 
     let result = run(&x_id, &hid_id, &params);
