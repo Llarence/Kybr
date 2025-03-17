@@ -6,6 +6,7 @@ use crate::{input::{input_event, EV_KEY}, keyboard};
 use crate::uhid::{uhid_event, uhid_event__bindgen_ty_1, uhid_event_type_UHID_CREATE2, uhid_event_type_UHID_DESTROY, uhid_event_type_UHID_INPUT2, BUS_USB};
 
 // Maybe make the key rollover higher
+// Volume doesn't work
 
 const NAME: [u8; 5] = [b'T', b'e', b's', b't', b'\0'];
 const DESC: [u8; 63] = [
@@ -45,8 +46,10 @@ const DESC: [u8; 63] = [
 
 const CTRL: u8 = 0b0000_0001;
 const SHIFT: u8 = 0b0000_0010;
+const ALT: u8 = 0b0000_0100;
 
 // TODO: Merge the two following hashmaps
+// Should really be CODE_TO_KEYCODE, but I am lazy
 
 pub const CHAR_TO_KEYCODE: phf::Map<char, u8> = phf_map! {
     'a' => 4,
@@ -100,8 +103,15 @@ pub const CHAR_TO_KEYCODE: phf::Map<char, u8> = phf_map! {
     ',' => 54,
     '.' => 55,
     '/' => 56,
+    '⇨' => 79,
+    '⇦' => 80,
+    '⇩' => 81,
+    '⇧' => 82,
+    '🔊' => 128,
+    '🔇' => 129,
     '\x07' => 224,
-    '\x0E' => 225
+    '\x0E' => 225,
+    '↹' => 226
 };
 
 const CHAR_TO_KEYPRESS: phf::Map<char, keyboard::KeyPress> = phf_map! {
@@ -202,12 +212,11 @@ const CHAR_TO_KEYPRESS: phf::Map<char, keyboard::KeyPress> = phf_map! {
     '.' => KeyPress::new(55, &[]),
     '>' => KeyPress::new(55, &[SHIFT]),
     '/' => KeyPress::new(56, &[]),
-    '?' => KeyPress::new(56, &[SHIFT]),
-    '\x07' => KeyPress::new(224, &[]),
-    '\x0E' => KeyPress::new(225, &[])
+    '?' => KeyPress::new(56, &[SHIFT])
 };
 
 // These are from the input.rs file, but phf needs them as u16
+// Why are \x07 ctrl and \x0E shift, also ↹ is alt
 const CODE_TO_CHAR: phf::Map<u16, char> = phf_map! {
     1u16 => '\x1B',
     2u16 => '1',
@@ -260,7 +269,13 @@ const CODE_TO_CHAR: phf::Map<u16, char> = phf_map! {
     49u16 => 'n',
     50u16 => 'm',
     51u16 => ',',
-    52u16 => '.'
+    52u16 => '.',
+    56u16 => '↹',
+    105u16 => '⇦',
+    106u16 => '⇨',
+    108u16 => '⇩',
+    114u16 => '🔇',
+    115u16 => '🔊'
 };
 
 pub const CHAR_TO_SHIFTED: phf::Map<char, char> = phf_map! {
@@ -327,6 +342,7 @@ impl BoardState {
         match character {
             224 => CTRL,
             225 => SHIFT,
+            226 => ALT,
             _ => 0b0000_0000
         }
     }
