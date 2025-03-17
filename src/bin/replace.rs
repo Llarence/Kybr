@@ -9,7 +9,7 @@ fn pass_through(reader: &mut HIDReader, writer: &mut HIDWriter) -> Result<(), Bo
 
     loop {
         if let Ok(res) = reader.read_valid() {
-            if res.character == '\x1B' && res.down {
+            if res.character == '\x7F' && res.down {
                 return Ok(());
             }
 
@@ -73,7 +73,7 @@ fn run(keyboard_id: &str, hid_id: &str, params: &[InputKey; IN_KEYS_COUNT]) -> R
 
     loop {
         if let Ok(res) = reader.read_valid_down() {
-            if res.character == '\x1B' {
+            if res.character == '\x7F' {
                 pass_through(&mut reader, &mut writer)?;
 
                 continue;
