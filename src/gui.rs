@@ -1,7 +1,7 @@
 use std::{cmp::min, process::exit, time::{Duration, Instant}};
 
 use iced::{event, keyboard::Key, widget::{column, text, Column}, Alignment::Center, Event, Fill, Subscription};
-use rand::Rng;
+// use rand::Rng;
 
 use crate::{key_converter::{InputKey, IN_KEYS_COUNT, LEFT_KEYS, OUT_KEYS, RIGHT_KEYS}, remapper::Remapper};
 
@@ -24,7 +24,7 @@ pub enum Message {
 
 impl App {
     pub fn new(params: [InputKey; IN_KEYS_COUNT], cutoff: Duration, target: String) -> Self {
-        Self { remapper: Remapper::new(params, cutoff), start: Instant::now(), target, garbage_index: 0, hinted: false, start_hint: rand::rng().random_range(0..2) }
+        Self { remapper: Remapper::new(params, cutoff), start: Instant::now(), target, garbage_index: 0, hinted: false, start_hint: 2/*rand::rng().random_range(0..2)*/ }
     }
 
     pub fn view(&self) -> Column<Message> {
@@ -84,10 +84,10 @@ impl App {
                     } else if self.garbage_index == 0 && self.target.starts_with(char) {
                         self.target.remove(0);
                         self.hinted = false;
-                        self.start_hint += 1;
+                        /*self.start_hint += 1;
                         if self.start_hint == 3 {
                             self.start_hint = 0;
-                        }
+                        }*/
                     } else {
                         self.target.insert(0, char);
 

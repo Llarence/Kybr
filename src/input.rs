@@ -722,6 +722,7 @@ pub const KEY_IMAGES: u32 = 442;
 pub const KEY_NOTIFICATION_CENTER: u32 = 444;
 pub const KEY_PICKUP_PHONE: u32 = 445;
 pub const KEY_HANGUP_PHONE: u32 = 446;
+pub const KEY_LINK_PHONE: u32 = 447;
 pub const KEY_DEL_EOL: u32 = 448;
 pub const KEY_DEL_EOS: u32 = 449;
 pub const KEY_INS_LINE: u32 = 450;
