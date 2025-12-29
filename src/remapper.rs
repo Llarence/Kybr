@@ -1,4 +1,6 @@
-use std::{collections::VecDeque, time::Duration};
+use std::{collections::VecDeque, fs::File, io::Read, path::PathBuf, time::Duration};
+
+use iced::futures::io;
 
 use crate::key_converter::{InputKey, IN_KEYS_COUNT, LEFT_KEYS, OUT_KEYS, RIGHT_KEYS};
 
@@ -37,4 +39,24 @@ impl Remapper {
             None
         }
     }
+}
+
+pub fn load_params_path(path: PathBuf) -> io::Result<[InputKey; IN_KEYS_COUNT]> {
+    let mut file = File::options().read(true).open(path)?;
+    load_params(&mut file)
+}
+
+// TODO: Use this function instead of of copy and pasting this code in the binaries
+pub fn load_params(file: &mut impl Read) -> io::Result<[InputKey; IN_KEYS_COUNT]> {
+    let mut params: [InputKey; IN_KEYS_COUNT] = [InputKey::new(0, 0); IN_KEYS_COUNT];
+    let mut buf: [u8; 2] = [0, 0];
+    for param in params.iter_mut() {
+        if file.read(&mut buf)? != buf.len() {
+            break;
+        }
+
+        *param = InputKey::from_bytes(buf);
+    }
+
+    Ok(params)
 }
